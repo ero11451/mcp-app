@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAG Q&A</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" rel="stylesheet">
+  <style>
+    body {
+      max-width: 900px;
+      margin: 2rem auto;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    .answer,
+    .error {
+      white-space: pre-wrap;
+    }
+
+    .card {
+      padding: 1rem 1.25rem;
+      border: 1px solid #e6e6e6;
+      border-radius: 12px;
+    }
+
+    .rows {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .muted {
+      opacity: .7;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="rows">
+    <header>
+      <h1>Ask your documents</h1>
+      <p class="muted">Type a question. We’ll retrieve context from your Chroma DB and answer with the model.</p>
+    </header>
+
+    <section class="card">
+      <form id="qa-form">
+        <label for="question"><strong>Question</strong></label>
+        <textarea id="question" name="question" rows="3" placeholder="e.g., What are the key points in myfile.txt?"
+          required></textarea>
+
+        <div class="grid">
+          <button id="ask-btn" type="submit">Ask</button>
+          <button id="clear-btn" type="button" class="secondary">Clear</button>
+        </div>
+      </form>
+
+      <div id="status" class="muted" style="display:none;margin-top:.5rem;">Thinking…</div>
+    </section>
+
+    <section class="card">
+      <h3>Answer</h3>
+      <div id="answer" class="answer"></div>
+      <div id="error" class="error" style="color:#b00020;"></div>
+    </section>
+
+
+
+    <!-- <footer class="muted mono " style="display: flex;">
+      <label for="file">File browser
+        <input type="file" id="file" name="file">
+      </label>
+      <div>
+        <button id="" type="submit">Upload</button>
+      </div>
+    </footer> -->
+  </main>
+
+  <script>
+    const form = document.getElementById('qa-form');
+    const askBtn = document.getElementById('ask-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const questionEl = document.getElementById('question');
+    const answerEl = document.getElementById('answer');
+    const errorEl = document.getElementById('error');
+    const statusEl = document.getElementById('status');
+
+    function setLoading(isLoading) {
+      askBtn.disabled = isLoading;
+      questionEl.disabled = isLoading;
+      statusEl.style.display = isLoading ? 'block' : 'none';
+      statusEl.textContent = isLoading ? 'Thinking…' : '';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      answerEl.textContent = '';
+      const question = questionEl.value.trim();
+      if (!question) {
+        errorEl.textContent = "Please enter a question.";
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch('/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+        answerEl.textContent = data.answer ?? '';
+      } catch (err) {
+        errorEl.textContent = err.message || String(err);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      questionEl.value = '';
+      answerEl.textContent = '';
+      errorEl.textContent = '';
+      questionEl.focus();
+    });
+  </script>
+</body>
+
+</html>

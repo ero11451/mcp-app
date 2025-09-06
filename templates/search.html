@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Ai search engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/loading.css">
+</head>
+
+<body class="dark:bg-neutral-600">
+    <!-- Spinner -->
+    <div id="spinner-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="h-screen flex flex-col pb-6">
+        <div class="h-full flex flex-col justify-center">
+            <div class="mt-1 max-w-4xl w-full h-full mx-auto px-4 sm:px-6 lg:p-8 rounded">
+                <div>
+                    <h1 class="text-3xl font-bold  text-center text-gray-800 sm:text-4xl dark:text-white">AI search</h1>
+                </div>
+
+                <div class="py-10 lg:py-14 overflow-y-scroll">
+                    <!-- ⬇︎ give the message list an ID -->
+                    <ul id="messages" class="mt-1 space-y-5">
+                        <!-- Example system/user/assistant bubbles you already had... -->
+                    </ul>
+                </div>
+            </div>
+
+            <form id="qa-form" class="w-full">
+                <div class="mt-10 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="relative">
+                        <!-- ⬇︎ give input an ID -->
+                        <textarea id="question" name="question" rows="1"
+                            class="p-3 sm:p-4 block w-full mr-32 resize-none overflow-hidden border-gray-200 rounded-full sm:text-sm
+                         focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-900
+                         dark:border-neutral-700 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:ring-neutral-600" placeholder="Ask me anything..."
+                            autocomplete="off"></textarea>
+                        <div class="absolute top-1/2 end-2 -translate-y-1/2 flex gap-1">
+                            <!-- ⬇︎ make this the submit button -->
+                            <button id="ask-btn" type="submit"
+                                class="size-10 inline-flex justify-center items-center rounded-full text-gray-500 hover:text-gray-800 dark:text-neutral-400 dark:hover:text-white">
+                                <svg class="size-5" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                    <path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.242" />
+                                    <path d="M12 12v9" />
+                                    <path d="m16 16-4-4-4 4" />
+                                </svg>
+                            </button>
+                            <button type="button"
+                                class="size-10 inline-flex justify-center items-center rounded-full text-gray-500 dark:text-neutral-400 dark:hover:text-white">
+                                <svg class="size-5" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                    <line x1="12" x2="12" y1="19" y2="22" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <footer class="mt-auto max-w-4xl text-center mx-auto px-4 sm:px-6 lg:px-8">
+            <p class="text-xs text-gray-600 dark:text-neutral-400">© 2025 osamuyi Labs.</p>
+        </footer>
+    </div>
+
+    <!-- API wiring -->
+    <script>
+        const form = document.getElementById('qa-form');
+        const askBtn = document.getElementById('ask-btn');
+        const input = document.getElementById('question');
+        const messages = document.getElementById('messages');
+        const spinner = document.getElementById('spinner-overlay');
+        const textarea = document.getElementById('question');
+
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto'; // reset height
+            textarea.style.height = textarea.scrollHeight + 'px'; // set to content height
+        });
+
+
+        function showSpinner(on) { spinner.style.display = on ? 'flex' : 'none'; }
+
+        function addBubble(role, text) {
+            const li = document.createElement('li');
+            li.className = "py-2 sm:py-4";
+            li.innerHTML = `
+        <div class="max-w-4xl px-4 sm:px-6 lg:px-8 mx-auto">
+          <div class="max-w-2xl flex gap-x-3 sm:gap-x-4">
+            <span class="shrink-0 inline-flex items-center justify-center size-10 rounded-full ${role === 'user' ? 'bg-blue-600' : 'bg-gray-600'}">
+              <span class="text-sm font-medium text-white">${role === 'user' ? 'You' : 'AZ'}</span>
+            </span>
+            <div class="grow mt-2 space-y-3">
+              <p class="text-gray-800 dark:text-neutral-200 whitespace-pre-wrap">${escapeHtml(text)}</p>
+            </div>
+          </div>
+        </div>`;
+            messages.appendChild(li);
+            messages.parentElement.scrollTop = messages.parentElement.scrollHeight;
+        }
+
+        function addTyping() {
+            const li = document.createElement('li');
+            li.id = "typing";
+            li.className = "py-2 sm:py-4";
+            li.innerHTML = `
+        <div class="max-w-4xl px-4 sm:px-6 lg:px-8 mx-auto">
+          <div class="max-w-2xl flex gap-x-3 sm:gap-x-4">
+            <span class="shrink-0 inline-flex items-center justify-center size-10 rounded-full bg-gray-600">
+              <span class="text-sm font-medium text-white">AZ</span>
+            </span>
+            <div class="grow mt-2">
+              <div class="flex gap-1 items-center">
+                <span class="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.3s]"></span>
+                <span class="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></span>
+                <span class="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0.3s]"></span>
+              </div>
+            </div>
+          </div>
+        </div>`;
+            messages.appendChild(li);
+            messages.parentElement.scrollTop = messages.parentElement.scrollHeight;
+        }
+
+        function removeTyping() {
+            const t = document.getElementById('typing');
+            if (t) t.remove();
+        }
+
+        function setDisabled(disabled) {
+            askBtn.disabled = disabled;
+            input.disabled = disabled;
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const q = (input.value || '').trim();
+            if (!q) return;
+
+            // show user bubble + typing indicator
+            addBubble('user', q);
+            addTyping();
+            setDisabled(true);
+            showSpinner(true);
+
+            try {
+                const res = await fetch('/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: q })
+                });
+
+
+
+                const data = await res.json().catch(() => ({}));
+                console.log(data)
+                removeTyping();
+                if (!res.ok) {
+                    const msg = data?.error || `Request failed (${res.status})`;
+                    addBubble('assistant', `⚠️ ${msg}`);
+                } else {
+                    addBubble('assistant', data.answer.output || '(no answer)');
+                }
+            } catch (err) {
+                removeTyping();
+                addBubble('assistant', '⚠️ Network error. Please try again.');
+            } finally {
+                showSpinner(false);
+                setDisabled(false);
+                input.value = '';
+                input.focus();
+            }
+        });
+    </script>
+</body>
+
+</html>

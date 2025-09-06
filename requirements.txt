@@ -1,0 +1,7 @@
+fastmcp
+langchain>=0.2
+langchain-community
+langchain-openai
+tavily-python        # optional but recommended
+duckduckgo-search    # no key required; used as fallback
+ddgs
